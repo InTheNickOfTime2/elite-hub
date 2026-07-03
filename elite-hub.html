@@ -1754,9 +1754,9 @@ function renderRace(){
 
 // ===== THREE WHYS =====
 const DEFAULT_WHYS={
-  identity:"I am the kind of man who keeps his word — starting with the ones he makes to himself.",
-  pain:"I'm not doing this again. Not the weight loss — the cycle.",
-  future:"The man at 215 leads the next chapter — the business, the family, the life."
+  identity:"Who are you becoming? Write the identity statement that anchors this.",
+  pain:"What does it cost to stay the same? Name the pain you're ending.",
+  future:"What does the finish line unlock? Write the future this builds."
 };
 function getThreeWhys(){try{return{...DEFAULT_WHYS,...(JSON.parse(localStorage.getItem('eh_three_whys'))||{})}}catch{return DEFAULT_WHYS}}
 function setThreeWhys(w){localStorage.setItem('eh_three_whys',JSON.stringify(w))}
@@ -1780,27 +1780,13 @@ function renderThreeWhys(){
 }
 
 // ===== 215 VISION =====
-const DEFAULT_VISION=`You at 215.
+const DEFAULT_VISION=`Write your vision here.
 
-You walk into a room and nothing has to be adjusted — not your shirt, not your posture, not the way you sit down. You just are there. The chair fits. The jacket fits. Stairs feel like nothing. You stand up from a low couch without a second of calculation. Your watch notifies you your resting heart rate is the lowest it's been in a decade. You sleep through the night without waking up hot. Getting dressed takes seven seconds because you stopped avoiding the mirror six months ago. You catch your own reflection in a window walking past — and for the first time in a long time, it doesn't sting. It clicks.
+Describe the day you hit the goal — what changes, how it feels, who notices. Make it vivid enough that reading it 2-3 times a week does something to you.
 
-Your presence changes. Not because you're smaller — because you kept a promise to yourself for six straight months, and people can feel that on you. Your team can feel it. Your family can feel it. You lead differently when you lead yourself first. Meetings go shorter. You interrupt less and listen more because you aren't carrying a quiet shame into every room. Conversations with women get easier. Travel gets easier. Squatting down to pick something up gets easier. You stop planning your day around how your body feels.
+Then describe the cost of staying the same a year from now. Both halves matter: the pull and the push.
 
-And the biggest thing: you proved, to the only person whose opinion matters, that when you say you're going to do something hard — you actually do it. That compounds into everything else. Business, relationships, the next phase of Rose. You don't start the next goal from "I hope I can." You start it from "I did 55 pounds. This is smaller than that."
-
-You at 270 in a year.
-
-You're still here. Still saying "I've been meaning to." Still negotiating with yourself before every meal — not really tracking, not really skipping, just existing in the gray area. The same shirts pull across the same places. You still calculate the chair before you sit. You still avoid certain photos. You still feel the sigh when you stand up. Your knees talk to you on stairs. Your sleep is fine but not great. Your energy dips at 2pm and you blame coffee. You turn 45 in this body. You turn 50 in this body. Each year, "not that bad" becomes a little more permanent. Each year, the version of you that could've was just a little farther away. Not dead — just dimmer.
-
-The scary part isn't gaining weight. The scary part is accepting it. The slow shift from "I'm working on it" to "this is just me now." That's the cost of staying. Not the weight. The identity.
-
-This isn't about 55 pounds.
-
-It's about whether you're the kind of man who does what he says. Who doesn't need a witness. Who keeps the quiet promises. 215 is just the scoreboard. The real prize is the man who made it happen — and the leverage that man has over every other hard thing you'll ever want to do.
-
-The work isn't that complicated. You already know what to do. The tracker's built. The plan's written. The coach is paid. You've already done the hard part — you know. What's left is just not negotiating anymore.
-
-215 is waiting. He's not impressed with you yet. Go earn it.`;
+Tap Edit to replace this with yours.`;
 function seedVision(){if(!localStorage.getItem('eh_vision'))localStorage.setItem('eh_vision',DEFAULT_VISION)}
 function renderVision(){
   const slot=document.getElementById('visionSlot');if(!slot)return;
@@ -1924,7 +1910,7 @@ const SLEEP_REASONS=[
   "Scrolling past 11pm is you breaking the first promise of the day — the one nobody sees. The one that counts.",
   "Cortisol stays elevated after bad sleep. Cortisol stores fat at the waist. The cycle you're ending starts here.",
   "Your heart rate recovery tanks without sleep. Every cardio session the next day costs more and buys less.",
-  "Sleep under 7 hrs correlates with a 30% worse mood next day. Your leadership at Rose depends on this more than coffee does."
+  "Sleep under 7 hrs correlates with a 30% worse mood next day. Your leadership depends on this more than coffee does."
 ];
 function sleepWarning(today){
   const yd=new Date(today);yd.setDate(yd.getDate()-1);
