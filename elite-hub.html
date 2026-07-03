@@ -1696,6 +1696,29 @@ function planSessionFor(d){
   return{label:ses[0],miles:ses[1],detail:ses[2]||'',wk:idx+1};
 }
 
+// Resting-heart-rate overtraining tripwire (coach's traffic-light system)
+// Baseline = avg of prior 7 days with data (needs 3+). +5 bpm = yellow, +7 = red.
+function rhrStatus(d){
+  const key=dk(d);
+  const today=parseInt(ld('rhr_'+key).bpm);
+  if(!today)return null;
+  const vals=[];
+  for(let i=1;i<=7;i++){const pd=new Date(d);pd.setDate(pd.getDate()-i);const v=parseInt(ld('rhr_'+dk(pd)).bpm);if(v)vals.push(v)}
+  if(vals.length<3)return{bpm:today,base:null,delta:0,level:0};
+  const base=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  const delta=today-base;
+  return{bpm:today,base,delta,level:delta>=7?2:delta>=5?1:0};
+}
+function renderRhrBanner(d){
+  const r=rhrStatus(d);
+  if(!r||!r.level)return'';
+  const red=r.level===2;
+  return `<div style="background:${red?'#1c0d0d':'#1c160d'};border:1px solid ${red?'#4a1a1a':'#4a3a1a'};border-left:3px solid ${red?'#ef4444':'#f5c842'};border-radius:12px;padding:11px 14px;margin:10px 0">
+    <div style="font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:${red?'#ef4444':'#f5c842'};font-weight:800;margin-bottom:4px">${red?'Red flag — resting HR':'Yellow flag — resting HR'}</div>
+    <div style="font-size:.72rem;color:var(--text-muted);font-weight:600;line-height:1.5">RHR ${r.bpm} vs ${r.base} baseline (+${r.delta} bpm). ${red?'Coach\'s rule: unplanned rest day. Skip the run, sleep, hydrate. One day now beats a lost week later.':'Coach\'s rule: today goes easy or not at all — no workout, no pace. Recheck tomorrow.'}</div>
+  </div>`;
+}
+
 // Context-aware DON'T list — the 1-2 rules that matter TODAY, from the coach's plan + history
 function dontListFor(d){
   const out=[];
@@ -3764,6 +3787,7 @@ function renderWorkout(){
   if(!prog){
     const restRun=renderRunCard();
     if(restRun){h+=restRun;h+=renderMileageCard()}
+    h+=renderRhrBanner(curDate);
     h+=renderDontCard(curDate);
     h+=`<div class="wo-rest">
       <div class="wo-rest-icon">&#x1f6cc;</div>
@@ -3782,6 +3806,7 @@ function renderWorkout(){
   // Run card + Mileage on run days
   const runCardHTML=renderRunCard();
   if(runCardHTML){h+=runCardHTML;h+=renderMileageCard()}
+  h+=renderRhrBanner(curDate);
   h+=renderDontCard(curDate);
   h+=`<div class="wo-header"><div class="wo-day-name">${prog.name}</div><div class="wo-day-sub">${prog.sub}</div></div>`;
   // Workout total timer
@@ -4399,6 +4424,11 @@ document.getElementById('importFile').addEventListener('change',e=>{
     if(wtl>50&&wtl<500){
       const w=ld('wt_'+dkey);w.lbs=Math.round(wtl*10)/10;w.src='health';sv('wt_'+dkey,w);
       synced.push(w.lbs+' lbs');
+    }
+    const rhr=parseFloat(q.get('rhr'));
+    if(rhr>=30&&rhr<=120){
+      const r=ld('rhr_'+dkey);r.bpm=Math.round(rhr);r.src='health';sv('rhr_'+dkey,r);
+      synced.push('RHR '+Math.round(rhr));
     }
     const hrs=parseFloat(q.get('sleep'));
     const bed=(q.get('bed')||'').match(/^\d{1,2}:\d{2}$/)?q.get('bed').padStart(5,'0'):'';
