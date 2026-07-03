@@ -75,6 +75,19 @@ LIFT_PHASE_NOTE = {1:'',2:'',3:'Coach: Phase 3 — drop to 3 lift days, keep leg
                    5:'Coach: Taper — light or none. Bank the fitness.'}
 
 
+def call(req, tries=6):
+    """Execute an API request with exponential backoff on rate limits."""
+    for i in range(tries):
+        try:
+            return req.execute()
+        except Exception as e:
+            if 'rateLimitExceeded' in str(e) or '403' in str(e) or '429' in str(e):
+                time.sleep(2 ** i)
+                continue
+            raise
+    raise RuntimeError('rate limit retries exhausted')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--from', dest='start', default=None)
@@ -88,17 +101,18 @@ def main():
 
     # Wipe previously synced events in range (idempotent resync)
     deleted = 0
-    page = None
     while True:
-        resp = svc.events().list(calendarId=CAL, privateExtendedProperty='ehub=1',
-                                 timeMin=f'{start}T00:00:00-05:00', timeMax=f'{end + timedelta(days=1)}T00:00:00-05:00',
-                                 maxResults=250, pageToken=page).execute()
-        for ev in resp.get('items', []):
-            svc.events().delete(calendarId=CAL, eventId=ev['id'], sendUpdates='none').execute()
-            deleted += 1
-        page = resp.get('nextPageToken')
-        if not page:
+        # re-list first page each pass: deleting invalidates page tokens
+        resp = call(svc.events().list(calendarId=CAL, privateExtendedProperty='ehub=1',
+                                      timeMin=f'{start}T00:00:00-05:00', timeMax=f'{end + timedelta(days=1)}T00:00:00-05:00',
+                                      maxResults=250))
+        items = [ev for ev in resp.get('items', []) if ev.get('status') != 'cancelled']
+        if not items:
             break
+        for ev in items:
+            call(svc.events().delete(calendarId=CAL, eventId=ev['id'], sendUpdates='none'))
+            deleted += 1
+            time.sleep(0.15)
     print(f'cleared {deleted} previously synced events')
 
     created = 0
@@ -137,9 +151,9 @@ def main():
                 'reminders': {'useDefault': False, 'overrides': [{'method': 'popup', 'minutes': 30}]},
                 'extendedProperties': {'private': {'ehub': '1'}},
             }
-            svc.events().insert(calendarId=CAL, body=body, sendUpdates='none').execute()
+            call(svc.events().insert(calendarId=CAL, body=body, sendUpdates='none'))
             created += 1
-            time.sleep(0.1)
+            time.sleep(0.15)
         d += timedelta(days=1)
     print(f'created {created} events ({start} -> {end})')
 
