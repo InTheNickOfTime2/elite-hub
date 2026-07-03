@@ -959,6 +959,8 @@ html.light-mode .check-item.tiered.nope{background:#fbeaea;border-color:#e8b8b8}
 .miss-note::placeholder{color:#2a2a3a;font-style:italic}
 
 .check-item{display:flex;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:7px;cursor:pointer;transition:all .2s;user-select:none;-webkit-user-select:none}
+/* Minimal Mode: strip the score section to weigh-in, run, protein */
+#sec-score.minimal .cat-breakdown,#sec-score.minimal .sup-card,#sec-score.minimal .custom-edit,#sec-score.minimal .tox-card,#sec-score.minimal .kw-card,#sec-score.minimal .miss-card,#sec-score.minimal .trig-card{display:none}
 .check-item:hover{background:#1a1a28}
 .check-item.checked{border-color:#2a3a2a;background:#0f1a0f}
 .check-item.na{opacity:.35;cursor:default}
@@ -1141,6 +1143,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   <div class="settings-row">
     <button class="settings-btn" id="btnSync" style="border-color:#3a3a6a;color:#7c8cf5">Cloud Sync</button>
     <button class="settings-btn" id="btnTheme">Light Mode</button>
+    <button class="settings-btn" id="btnMinimal">Minimal Mode: OFF</button>
     <button class="settings-btn" id="btnExport">Export Data</button>
     <button class="settings-btn" id="btnImport">Import Data</button>
     <button class="settings-btn" id="btnReset" style="border-color:#3a1a1a;color:#8a3a3a">Wipe Daily Logs</button>
@@ -2346,9 +2349,21 @@ function scTxt(s,m){const p=m>0?s/m:0;if(p>=10/11)return'ELITE';if(p>=9/11)retur
 
 function renderScore(){
   const key=dk(curDate),data=ld('sc_'+key),items=getActive(curDate),max=getMax(curDate);
+  const MINIMAL=localStorage.getItem('eh_minimal')==='1';
+  let h='';
+  if(MINIMAL){
+    const wtOk=!!parseFloat(ld('wt_'+key).lbs);
+    const runItem=items.find(i=>i.id==='run');
+    const runOk=data.run===true,runNA=!(runItem&&runItem.active);
+    const proOk=parseInt(data.protein)>0;
+    const need=runNA?2:3;
+    const done=(wtOk?1:0)+(runOk?1:0)+(proOk?1:0);
+    h+=`<div class="target-line" style="font-weight:800;letter-spacing:1.5px;color:${done>=need?'#10b981':'var(--text-muted)'}">MINIMAL MODE · ${done}/${need} — Weigh ${wtOk?'✓':'·'} ${runNA?'':(runOk?' Run ✓':' Run ·')} Protein ${proOk?'✓':'·'}</div>`;
+  }else{
   const s100=scoreDay100(curDate),z=zone100(s100),circ=2*Math.PI*50;
-  let h=`<div class="score-ring${z.glow?' elite':''}"><svg width="160" height="160" viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fill" cx="60" cy="60" r="50" style="stroke-dasharray:${circ};stroke-dashoffset:${circ-(s100/100)*circ};stroke:${z.color}"/></svg><div class="score-display"><div class="score-num" style="color:${z.color}">${s100}</div><div class="score-den">/ 100</div><div class="score-lbl" style="color:${z.color}">${z.label}</div></div></div>`;
+  h+=`<div class="score-ring${z.glow?' elite':''}"><svg width="160" height="160" viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fill" cx="60" cy="60" r="50" style="stroke-dasharray:${circ};stroke-dashoffset:${circ-(s100/100)*circ};stroke:${z.color}"/></svg><div class="score-display"><div class="score-num" style="color:${z.color}">${s100}</div><div class="score-den">/ 100</div><div class="score-lbl" style="color:${z.color}">${z.label}</div></div></div>`;
   h+=`<div class="target-line">Strong <b>80+</b> &nbsp;•&nbsp; Elite <b>90+</b></div>`;
+  }
 
   // Category breakdown
   const brk=scoreBreakdown(curDate);
@@ -2452,7 +2467,7 @@ function renderScore(){
   if(pTotal===0)h+=`<div class="pri-empty-hint">Set tomorrow night. Execute the next morning.</div>`;
   h+=`</div>`;
 
-  items.forEach(i=>{
+  (MINIMAL?items.filter(i=>['run','protein'].includes(i.id)):items).forEach(i=>{
     const delBtn=i.custom?`<button class="chk-delete" data-del="${i.id}" title="Remove">&times;</button>`:'';
     if(i.units&&i.active){
       const cur=parseInt(data[i.id])||0,full=cur>=i.units;
@@ -2670,6 +2685,7 @@ function renderScore(){
   </div>`;
 
   document.getElementById('sec-score').innerHTML=h;
+  document.getElementById('sec-score').classList.toggle('minimal',MINIMAL);
   const wAvg=wCnt>0?Math.round(wSum/wCnt):0;
   document.querySelector('.week-total').innerHTML=wCnt>0?`Avg <b style="color:${zone100(wAvg).color}">${wAvg}</b> <span style="color:#555">/100 · ${wCnt}d</span>`:`<span style="color:#555">No data</span>`;
 
@@ -4257,6 +4273,20 @@ document.getElementById('visionEditBtn').addEventListener('click',()=>{
   const editing=body.contentEditable==='true';
   if(editing){localStorage.setItem('eh_vision',body.innerText);paintVisionBody(false);hap(15)}
   else{paintVisionBody(true);hap(10)}
+});
+
+// Minimal Mode toggle
+const bMin=document.getElementById('btnMinimal');
+function setMinLbl(){
+  const on=localStorage.getItem('eh_minimal')==='1';
+  bMin.textContent='Minimal Mode: '+(on?'ON':'OFF');
+  bMin.style.color=on?'#10b981':'';
+  bMin.style.borderColor=on?'#1a4a33':'';
+}
+setMinLbl();
+bMin.addEventListener('click',()=>{
+  localStorage.setItem('eh_minimal',localStorage.getItem('eh_minimal')==='1'?'0':'1');
+  setMinLbl();hap(15);render();
 });
 
 // Export / Import
