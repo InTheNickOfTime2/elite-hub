@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>Elite Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1429,6 +1430,13 @@ function render100Day(){
 
 // ===== RUN LOG + MILEAGE =====
 function runTargetFor(d){
+  // Coach's plan first: exact session for this date
+  if(planWeekIdx(d)>=0){
+    const p=planSessionFor(d);
+    if(!p||p.miles<=0)return null; // rest or XT-only day
+    return{miles:p.miles,label:p.label,detail:p.detail,wk:p.wk};
+  }
+  // Fallback (outside plan window): derived from long-run table
   const dow=d.getDay();
   if(![2,4,6].includes(dow))return null;
   const raceDate=localStorage.getItem('eh_race_date')||'2026-11-14';
@@ -1457,7 +1465,8 @@ function renderRunCard(){
     else if(paceSec<=goalPaceSec*1.25)paceCls='slow';
   }
   return `<div class="run-card">
-    <div class="run-hdr"><span class="run-title">${target.label}</span><span class="run-target">Target: <b>${target.miles}</b>mi</span></div>
+    <div class="run-hdr"><span class="run-title">${target.label}</span><span class="run-target">${target.wk?`Wk ${target.wk}/30 · `:''}Target: <b>${target.miles}</b>mi</span></div>
+    ${target.detail?`<div style="font-size:.68rem;color:var(--text-muted);font-weight:600;margin:-2px 0 8px;line-height:1.4">${target.detail}</div>`:''}
     <div class="run-inputs">
       <div class="run-input-group"><label>Miles</label><input class="run-input" type="number" inputmode="decimal" step="0.1" id="runMiles" value="${mi}" placeholder="${target.miles}"></div>
       <div class="run-input-group"><label>Time (min)</label><input class="run-input" type="number" inputmode="decimal" step="0.1" id="runTime" value="${t}" placeholder="—"></div>
@@ -1471,6 +1480,8 @@ function parseTimeStr(s){const p=(s||'0:0:0').split(':').map(Number);return(p[0]
 // Weekly mileage plan — index = weeks until race
 const WEEKLY_MILEAGE_PLAN=[30,20,28,36,44,50,48,46,48,46,44,42,40,38,36,34,32,30,28,26,24,22,20,18,16,14,12,10,8,8];
 function weeklyMileageTarget(d){
+  const pIdx=planWeekIdx(d);
+  if(pIdx>=0)return MARATHON_PLAN.weeks[pIdx].mi;
   const raceDate=localStorage.getItem('eh_race_date')||'2026-11-14';
   const gd=new Date(raceDate+'T00:00:00');
   const td=new Date(d);td.setHours(0,0,0,0);
@@ -1627,6 +1638,64 @@ function renderRaceChecklist(){
 // ===== RICHMOND MARATHON =====
 // Index = weeks until race. Long run target (miles) for that week's Saturday.
 const LONG_RUN_PLAN=[26.2,8,12,16,20,22,20,18,20,18,17,15,14,13,12,11,10,9,8,7,6,6,5,5,4,4,3,3,3,3];
+
+// ===== COACH'S 30-WEEK RICHMOND PLAN (Richmond_Marathon_Plan_2026.md) =====
+// weeks[i].d = sessions keyed by day-of-week (0=Sun..6=Sat): [shortLabel, miles, detail]
+const PLAN_PHASES={1:'Base',2:'Aerobic',3:'Strength & Stamina',4:'Marathon Specific',5:'Taper'};
+const MARATHON_PLAN={start:'2026-04-20',weeks:[
+{mi:15,ph:1,d:{2:['Easy Run',3],3:['XT',0,'Bike or swim 30-40 min + lift'],4:['Easy Run',3],6:['Long Run',5,'Easy pace'],0:['Easy Run',4]}},
+{mi:18,ph:1,d:{2:['Easy Run',3.5],3:['Easy Run',3],4:['Easy Run',4],6:['Long Run',5,'Easy pace'],0:['Easy Run',3]}},
+{mi:21,ph:1,d:{2:['Easy + Strides',4,'Easy run + 4 strides'],3:['Easy Run',3],4:['Easy Run',4],6:['Long Run',6,'Easy pace'],0:['Easy Run',4]}},
+{mi:18,ph:1,sb:1,d:{2:['Easy Run',3],3:['XT',0,'XT 30 min + lift'],4:['Easy + Strides',4,'Easy run + 4 strides'],6:['Long Run',6,'Easy pace'],0:['Easy Run',3]}},
+{mi:25,ph:1,d:{2:['Easy + Strides',5,'Easy run + 6 strides'],3:['Easy Run',4],4:['Easy Run',4],6:['Long Run',7,'Easy pace'],0:['Easy Run',4]}},
+{mi:28,ph:1,d:{2:['Easy + Strides',5,'Easy run + 6 strides'],3:['Easy Run',4],4:['Easy Run',5],6:['Long Run',8,'Easy pace'],0:['Easy Run',4]}},
+{mi:30,ph:2,d:{2:['Fartlek',6,'WU 1.5mi + 6 x 2 min ON (tempo effort) / 2 min OFF + CD 1.5mi'],3:['Easy Run',4],4:['Easy Run',5],6:['Long Run',9,'Easy pace'],0:['Easy Run',4]}},
+{mi:32,ph:2,d:{2:['Fartlek',7,'WU 1.5mi + 8 x 2 min ON / 2 min OFF + CD 1.5mi'],3:['Easy Run',4],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['Long Run',10,'Easy pace — first double-digit'],0:['Easy Run',4]}},
+{mi:28,ph:2,sb:1,d:{2:['Easy + Strides',5,'Easy run + 6 strides'],3:['Easy Run',4],4:['Easy Run',4],6:['Long Run',8,'Easy pace'],0:['Easy Run',3,'Easy run or XT']}},
+{mi:34,ph:2,d:{2:['Tempo',6.5,'WU 2mi + 15 min continuous tempo + CD 1.5mi'],3:['Easy Run',4],4:['Easy + Strides',5.5,'Easy run + 6 strides'],6:['Long Run',11,'Easy pace'],0:['Easy Run',4]}},
+{mi:35,ph:2,d:{2:['Tempo',7,'WU 2mi + 20 min continuous tempo + CD 1.5mi'],3:['Easy Run',4],4:['Easy Run',5],6:['Long Run',12,'Easy pace'],0:['Easy Run',4]}},
+{mi:36,ph:2,d:{2:['Tempo',7,'WU 2mi + 2 x 10 min tempo (2 min jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['Long Run',13,'Easy pace'],0:['Easy Run',4]}},
+{mi:38,ph:3,d:{2:['Tempo',7,'WU 2mi + 3 x 1 mile at tempo (90 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Hills',5,'WU 1.5mi + 6 x 90 sec hill repeats (jog down) + CD 1.5mi'],6:['Long Run',13,'Easy pace'],0:['Easy Run',4]}},
+{mi:40,ph:3,d:{2:['Tempo',8,'WU 2mi + 4 x 1 mile at tempo (90 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Hills',5.5,'WU 1.5mi + 8 x 90 sec hill repeats (jog down) + CD 1.5mi'],6:['Long Run',14,'12 easy + last 2 moderate pickup'],0:['Easy Run',4]}},
+{mi:34,ph:3,sb:1,d:{2:['Tempo',5.5,'WU 1.5mi + 15 min tempo + CD 1.5mi'],3:['Easy Run',4],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['Long Run',10,'Easy pace'],0:['Easy Run',4]}},
+{mi:42,ph:3,d:{2:['Cruise Intervals',8,'WU 2mi + 5 x 5 min at tempo (60 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Intervals',6,'WU 1.5mi + 6 x 800m at interval effort (400m jog) + CD 1.5mi'],6:['Long Run',15,'13 easy + last 2 moderate'],0:['Easy Run',4]}},
+{mi:42,ph:3,d:{2:['Tempo',8,'WU 2mi + 25 min continuous tempo + CD 1.5mi'],3:['Easy Run',5],4:['Intervals',6,'WU 1.5mi + 5 x 1K at interval effort (400m jog) + CD 1.5mi'],6:['Long Run',16,'14 easy + last 2 pickup'],0:['Easy Run',4]}},
+{mi:36,ph:3,sb:1,d:{2:['Easy + Strides',5,'Easy run + 8 strides'],3:['Easy Run',4],4:['Tempo',5,'WU 1.5mi + 15 min tempo + CD 1.5mi'],6:['Long Run',12,'Easy — or 10K tune-up race this window'],0:['Easy Run',4]}},
+{mi:42,ph:4,d:{2:['Tempo',8,'WU 2mi + 4 x 1 mile at tempo (90 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['MP Long Run',16,'10 easy + 4 at MP + 2 easy · practice fueling'],0:['Recovery Run',4]}},
+{mi:44,ph:4,d:{2:['MP Repeats',9,'WU 2mi + 3 x 2 miles at MP (2 min jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy Run',5],6:['MP Long Run',17,'8 easy + 6 at MP + 3 easy · fuel every 5 mi'],0:['Recovery Run',4]}},
+{mi:38,ph:4,sb:1,d:{2:['Tempo',6,'WU 1.5mi + 20 min tempo + CD 1.5mi'],3:['Easy Run',4],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['Long Run',12,'Easy, no MP'],0:['Easy Run',4]}},
+{mi:45,ph:4,d:{2:['Tempo',9,'WU 2mi + 5 x 1 mile at tempo (90 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy Run',5],6:['MP Long Run',18,'8 easy + 8 at MP + 2 easy · statement workout'],0:['Recovery Run',4]}},
+{mi:46,ph:4,d:{2:['MP Repeats',10,'WU 2mi + 2 x 3 miles at MP (3 min jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['MP Long Run',20,'10 easy + 8 at MP + 2 easy · FIRST 20-MILER'],0:['Recovery Run',3,'Recovery run or XT']}},
+{mi:38,ph:4,sb:1,d:{2:['Fartlek',6,'WU 1.5mi + 6 x 2 min (tempo effort) / 2 min jog + CD 1.5mi'],3:['Easy Run',4],4:['Easy Run',5],6:['Long Run',13,'Easy — or half marathon tune-up this window'],0:['Easy Run',4]}},
+{mi:48,ph:4,d:{2:['Tempo',9,'WU 2mi + 4 x 2K at tempo (90 sec jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['MP Long Run',21,'THE BIG ONE: 8 easy + 10 at MP + 2-4 easy · PEAK WEEK'],0:['Recovery Run',3,'Recovery run or XT']}},
+{mi:40,ph:4,d:{2:['MP Repeats',9,'WU 2mi + 3 x 2 miles at MP (2 min jog) + CD 1.5mi'],3:['Easy Run',5],4:['Easy Run',5],6:['MP Long Run',16,'8 easy + 6 at MP + 2 easy'],0:['Easy Run',4]}},
+{mi:38,ph:4,d:{2:['Tempo + MP',8,'WU 2mi + 20 min tempo + 10 min easy + 10 min at MP + CD 1.5mi'],3:['Easy Run',5],4:['Easy + Strides',5,'Easy run + 6 strides'],6:['Dress Rehearsal',14,'6 easy + 6 at MP + 2 easy · race shoes, kit, breakfast, fuel'],0:['Easy Run',4]}},
+{mi:30,ph:5,d:{2:['MP Repeats',7,'WU 1.5mi + 4 x 1 mile at MP (90 sec jog) + CD 1mi'],3:['Easy Run',4],4:['Easy + Strides',4,'Easy run + 4 strides'],6:['Long Run',10,'Easy pace · taper begins'],0:['Easy Run',3]}},
+{mi:24,ph:5,d:{2:['MP Repeats',6,'WU 1.5mi + 3 x 1 mile at MP (90 sec jog) + CD 1mi'],3:['Easy Run',3],4:['Easy + Strides',4,'Easy run + 6 strides'],6:['Easy Run',6],0:['Easy Run',3]}},
+{mi:12,ph:5,d:{1:['Easy + Strides',3,'Easy run + 4 strides'],2:['MP Repeats',4,'WU 1mi + 2 x 1 mile at MP (2 min jog) + CD 1mi'],3:['Easy Run',3],4:['Shakeout',2,'Easy shakeout + 4 strides'],6:['RACE DAY',26.2,'RICHMOND MARATHON — negative split: 10:25-10:30 first 6, settle 10:18, finish strong']}}
+]};
+function planWeekIdx(d){
+  const s=new Date(MARATHON_PLAN.start+'T00:00:00');
+  const t=new Date(d);t.setHours(0,0,0,0);
+  const days=Math.round((t-s)/86400000);
+  if(days<0)return -1;
+  const idx=Math.floor(days/7);
+  return idx<MARATHON_PLAN.weeks.length?idx:-1;
+}
+function planSessionFor(d){
+  const idx=planWeekIdx(d);if(idx<0)return null;
+  const ses=MARATHON_PLAN.weeks[idx].d[d.getDay()];
+  if(!ses)return null;
+  return{label:ses[0],miles:ses[1],detail:ses[2]||'',wk:idx+1};
+}
+
+// Auto-set the scorecard Steps tier (8/10/12K pills) from an exact step count
+function syncStepsTier(key,n){
+  if(!n)return;
+  const sc=ld('sc_'+key);
+  const t=n>=12000?12:n>=10000?10:n>=8000?8:-1;
+  if(sc.steps!==t){sc.steps=t;sv('sc_'+key,sc)}
+}
 function paceFromGoal(goalStr){
   const p=(goalStr||'4:30:00').split(':').map(Number);
   const totalSec=(p[0]||0)*3600+(p[1]||0)*60+(p[2]||0);
@@ -1654,7 +1723,14 @@ function renderRace(){
   const dateLbl=`${MO[gd.getMonth()]} ${gd.getDate()}, ${gd.getFullYear()}`;
   const longRun=LONG_RUN_PLAN[Math.min(weeksOut,LONG_RUN_PLAN.length-1)]||3;
   const pace=paceFromGoal(goalTime);
-  const longRunLine=daysLeft<=7?`<b>RACE WEEK</b> · taper · easy legs only`:`Saturday long run: <b>${longRun}</b>mi · goal pace ${pace}/mi`;
+  const pIdx=planWeekIdx(today);
+  let longRunLine;
+  if(daysLeft<=7)longRunLine=`<b>RACE WEEK</b> · taper · easy legs only`;
+  else if(pIdx>=0){
+    const w=MARATHON_PLAN.weeks[pIdx],sat=w.d[6];
+    longRunLine=`Week <b>${pIdx+1}/30</b> · ${PLAN_PHASES[w.ph]}${w.sb?' · <b style="color:#10b981">step-back week</b>':''} · <b>${w.mi}</b>mi planned<br>Saturday: <b>${sat?sat[1]+'mi '+sat[0]:'rest'}</b> · goal pace ${pace}/mi`;
+  }
+  else longRunLine=`Saturday long run: <b>${longRun}</b>mi · goal pace ${pace}/mi`;
   const priorTime=localStorage.getItem('eh_race_prior')||'';
   const priorName=localStorage.getItem('eh_race_prior_name')||'';
   let priorLine='';
@@ -1978,7 +2054,7 @@ const SC_ITEMS_BASE=[
   {id:'fasted',label:'Fasted AM Cardio',detail:'30 min · 135-150 BPM',yn:true,always:true},
   {id:'lift',label:'Lifted',detail:'Daily',yn:true,always:true},
   {id:'post_cardio',label:'Post-Workout Cardio',detail:'20 min stairmaster',yn:true,always:true},
-  {id:'run',label:'Run',detail:'Tue / Thu / Sat',yn:true,runDays:[2,4,6]},
+  {id:'run',label:'Run',detail:'Per marathon plan',yn:true,runDays:[2,4,6]},
   {id:'calories',label:'Hit calorie target',detail:'Within 100 cal',always:true},
   {id:'protein',label:'Protein',tiers:[130,165,220],tierUnit:'g',always:true},
   {id:'water',label:'Water',units:8,unitOz:24,targetOz:192,always:true},
@@ -2252,7 +2328,10 @@ function getActive(d){
     let a=true;
     if(i.liftDays)a=i.liftDays.includes(dow);
     if(i.cornellDays)a=i.cornellDays.includes(dow);
-    if(i.runDays)a=i.runDays.includes(dow);
+    if(i.runDays){
+      if(planWeekIdx(d)>=0){const ps=planSessionFor(d);a=!!(ps&&ps.miles>0)}
+      else a=i.runDays.includes(dow);
+    }
     if(i.days&&Array.isArray(i.days))a=i.days.includes(dow);
     let detail=i.detail;
     if(i.weeklyTarget){
@@ -2291,8 +2370,21 @@ function renderScore(){
   });
   h+=`</div>`;
 
-  // Metrics (Sleep + Weight)
+  // Metrics (Sleep + Weight + Steps)
   const slp=ld('slp_'+key),wt=ld('wt_'+key);
+  const st=ld('steps_'+key);
+  const stN=parseInt(st.count)||0;
+  const stCol=stN>=12000?'#f5c842':stN>=10000?'#10b981':stN>=8000?'#ff6b35':stN>0?'#ef4444':'';
+  let stSpark='';const stArr=[];
+  for(let i=29;i>=0;i--){const pd=new Date(curDate);pd.setDate(pd.getDate()-i);const pv=parseInt(ld('steps_'+dk(pd)).count);stArr.push(pv||null)}
+  const stVals=stArr.filter(v=>v);
+  if(stVals.length){
+    const hi=Math.max(...stVals,12000);
+    stArr.forEach((v,i)=>{if(!v){stSpark+='<div class="met-spark-bar" style="height:3px;opacity:.2"></div>';return}const bh=4+(v/hi)*16;stSpark+=`<div class="met-spark-bar${i===29?' today':''}" style="height:${bh}px"></div>`});
+  }
+  let stAvg=0,s7=0,c7=0;
+  for(let i=0;i<7;i++){const pd=new Date(curDate);pd.setDate(pd.getDate()-i);const pv=parseInt(ld('steps_'+dk(pd)).count);if(pv){s7+=pv;c7++}}
+  if(c7)stAvg=Math.round(s7/c7);
   const hrsN=parseFloat(slp.hours)||0;
   const hrsCol=hrsN>=8?'#f5c842':hrsN>=7?'#10b981':hrsN>=6?'#ff6b35':hrsN>0?'#ef4444':'';
   const bedStr=slp.bedtime||'',wakeStr=slp.wake||'',ssStr=slp.score||'';
@@ -2321,7 +2413,7 @@ function renderScore(){
     <div class="met-row${metOpen.sleep?' open':''}" data-met="sleep">
       <span class="met-lbl">Sleep</span>
       <div class="met-main"><span class="met-num${hrsN?'':' low'}" ${hrsCol?`style="color:${hrsCol}"`:''}>${hrsN?hrsN.toFixed(1):'—'}</span><span class="met-unit">${hrsN?'hrs':''}</span></div>
-      <span class="met-sub">${bedStr?'Bed '+fmtTime12(bedStr):''}${wakeStr?' · Wake '+fmtTime12(wakeStr)+wakeInd:''}${ssStr?' · SS '+ssStr:''}</span>
+      <span class="met-sub">${bedStr?'Bed '+fmtTime12(bedStr):''}${wakeStr?' · Wake '+fmtTime12(wakeStr)+wakeInd:''}${ssStr?' · SS '+ssStr:''}${slp.src==='health'?' · <span style="color:#10b981">Watch ✓</span>':''}</span>
     </div>
     <div class="met-edit" style="display:${metOpen.sleep?'block':'none'}">
       <div class="met-edit-grid">
@@ -2339,6 +2431,16 @@ function renderScore(){
     <div class="met-edit" style="display:${metOpen.wt?'block':'none'}">
       <div class="met-edit-grid">
         <div class="met-edit-field full"><label>Fasted AM weight (lbs)</label><input type="number" step="0.1" min="0" max="500" id="mWtLbs" placeholder="182.4" value="${wt.lbs||''}"></div>
+      </div>
+    </div>
+    <div class="met-row${metOpen.stp?' open':''}" data-met="stp">
+      <span class="met-lbl">Steps</span>
+      <div class="met-main"><span class="met-num${stN?'':' low'}" ${stCol?`style="color:${stCol}"`:''}>${stN?stN.toLocaleString():'—'}</span></div>
+      <span class="met-sub">${stAvg?`7-day avg ${stAvg.toLocaleString()}`:''}${stN&&st.src==='health'?' · <span style="color:#10b981">Watch ✓</span>':''}${stSpark?`<span class="met-spark">${stSpark}</span>`:''}</span>
+    </div>
+    <div class="met-edit" style="display:${metOpen.stp?'block':'none'}">
+      <div class="met-edit-grid">
+        <div class="met-edit-field full"><label>Steps today (auto-syncs from Apple Watch)</label><input type="number" step="1" min="0" max="100000" id="mStepsN" placeholder="10000" value="${st.count||''}"></div>
       </div>
     </div>
   </div>`;
@@ -2641,13 +2743,14 @@ function renderScore(){
       const k=el.dataset.met;
       window._metOpen={[k]:!window._metOpen[k]};
       renderScore();
-      if(window._metOpen[k]){setTimeout(()=>{const f=document.getElementById(k==='sleep'?'mSlpHrs':'mWtLbs');f&&f.focus()},20)}
+      if(window._metOpen[k]){setTimeout(()=>{const f=document.getElementById(k==='sleep'?'mSlpHrs':k==='stp'?'mStepsN':'mWtLbs');f&&f.focus()},20)}
     });
   });
   // Sleep fields
   const slpSave=()=>{const s=ld('slp_'+key);
     const h=document.getElementById('mSlpHrs'),b=document.getElementById('mSlpBed'),w=document.getElementById('mSlpWake'),sc=document.getElementById('mSlpScore');
     if(h)s.hours=h.value;if(b)s.bedtime=b.value;if(w)s.wake=w.value;if(sc)s.score=sc.value;
+    s.src='manual';
     sv('slp_'+key,s);
   };
   ['mSlpHrs','mSlpBed','mSlpWake','mSlpScore'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',slpSave);});
@@ -2659,6 +2762,14 @@ function renderScore(){
     let priorW=null;
     for(let i=1;i<90;i++){const d=new Date(curDate);d.setDate(d.getDate()-i);const pw=parseFloat(ld('wt_'+dk(d)).lbs);if(pw){priorW=pw;break}}
     if(newW&&priorW)checkWeightMilestone(newW,priorW);
+  });
+  // Steps field
+  const stEl=document.getElementById('mStepsN');
+  if(stEl)stEl.addEventListener('change',()=>{
+    const s=ld('steps_'+key);const n=parseInt(stEl.value)||0;
+    s.count=n||'';s.src='manual';sv('steps_'+key,s);
+    syncStepsTier(key,n);
+    renderScore();
   });
   // Toxic (simple)
   document.querySelectorAll('.tox-item[data-tox]').forEach(el=>{
@@ -4179,6 +4290,47 @@ document.getElementById('importFile').addEventListener('change',e=>{
   };
   r.readAsText(f);
 });
+
+// Apple Health ingest (iOS Shortcut):
+//   elite-hub.html?steps=12345&sleep=7.4&bed=23:41&wake=06:12[&score=88][&d=YYYY-MM-DD]
+// Any subset of params works. Sleep values apply to last night (today's date key).
+(function(){
+  try{
+    const q=new URLSearchParams(location.search);
+    const dparam=q.get('d')||'';
+    const dkey=/^\d{4}-\d{2}-\d{2}$/.test(dparam)?dparam:dk(new Date());
+    const synced=[];
+    const n=parseInt(q.get('steps'));
+    if(n>0){
+      const s=ld('steps_'+dkey);s.count=n;s.src='health';sv('steps_'+dkey,s);
+      syncStepsTier(dkey,n);
+      synced.push(n.toLocaleString()+' steps');
+    }
+    const hrs=parseFloat(q.get('sleep'));
+    const bed=(q.get('bed')||'').match(/^\d{1,2}:\d{2}$/)?q.get('bed').padStart(5,'0'):'';
+    const wake=(q.get('wake')||'').match(/^\d{1,2}:\d{2}$/)?q.get('wake').padStart(5,'0'):'';
+    const score=parseInt(q.get('score'));
+    if(hrs>0||bed||wake){
+      const sl=ld('slp_'+dkey);
+      if(hrs>0)sl.hours=Math.round(hrs*10)/10;
+      if(bed)sl.bedtime=bed;
+      if(wake)sl.wake=wake;
+      if(score>0&&score<=100)sl.score=score;
+      sl.src='health';sv('slp_'+dkey,sl);
+      if(hrs>0)synced.push(sl.hours+'h sleep');
+      else synced.push('sleep times');
+    }
+    if(synced.length){
+      history.replaceState(null,'',location.pathname);
+      const toast=document.createElement('div');
+      toast.textContent=synced.join(' · ')+' synced from Apple Watch';
+      toast.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-weight:800;font-size:.75rem;padding:8px 16px;border-radius:20px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+      document.body.appendChild(toast);
+      setTimeout(()=>toast.remove(),3500);
+      hap(20);
+    }
+  }catch(e){}
+})();
 
 render();
 showQuote();
