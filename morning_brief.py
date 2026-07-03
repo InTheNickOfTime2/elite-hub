@@ -110,6 +110,11 @@ def main():
     if today != RACE_DAY:
         lines.append(f'<p style="color:#c0392b"><b>Don\'t:</b> {dont_for(today, wk, ses, wk_num)}</p>')
 
+    # Visualization prompt (coach: 2-3x/week) — Tue and Fri, tied to a ping that already fires
+    if today.weekday() in (1, 4) and today != RACE_DAY:
+        lines.append('<p style="color:#b8860b"><b>Visualization (2 min):</b> open the Vision card before the day starts. '
+                     'See the finish line clock and the compliment scene. Check it off on the scorecard.</p>')
+
     # Tomorrow preview
     _, tom = session_for(today + timedelta(days=1))
     lines.append(f'<p style="color:#666">Tomorrow: '
