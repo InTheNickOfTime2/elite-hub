@@ -4278,8 +4278,9 @@ document.getElementById('importFile').addEventListener('change',e=>{
 });
 
 // Apple Health ingest (iOS Shortcut):
-//   elite-hub.html?steps=12345&sleep=7.4&bed=23:41&wake=06:12[&score=88][&d=YYYY-MM-DD]
+//   elite-hub.html?steps=12345&sleep=7.4&bed=23:41&wake=06:12&runmi=5.2&runmin=63&wt=268.4[&score=][&d=YYYY-MM-DD]
 // Any subset of params works. Sleep values apply to last night (today's date key).
+// A synced run also auto-checks the scorecard Run item.
 (function(){
   try{
     const q=new URLSearchParams(location.search);
@@ -4291,6 +4292,20 @@ document.getElementById('importFile').addEventListener('change',e=>{
       const s=ld('steps_'+dkey);s.count=n;s.src='health';sv('steps_'+dkey,s);
       syncStepsTier(dkey,n);
       synced.push(n.toLocaleString()+' steps');
+    }
+    const rmi=parseFloat(q.get('runmi')),rmin=parseFloat(q.get('runmin'));
+    if(rmi>0){
+      const r=ld('run_'+dkey);
+      r.miles=Math.round(rmi*100)/100;
+      if(rmin>0)r.timeMin=Math.round(rmin*10)/10;
+      r.src='health';sv('run_'+dkey,r);
+      const scr=ld('sc_'+dkey);if(scr.run!==true){scr.run=true;sv('sc_'+dkey,scr)}
+      synced.push(r.miles+'mi run');
+    }
+    const wtl=parseFloat(q.get('wt'));
+    if(wtl>50&&wtl<500){
+      const w=ld('wt_'+dkey);w.lbs=Math.round(wtl*10)/10;w.src='health';sv('wt_'+dkey,w);
+      synced.push(w.lbs+' lbs');
     }
     const hrs=parseFloat(q.get('sleep'));
     const bed=(q.get('bed')||'').match(/^\d{1,2}:\d{2}$/)?q.get('bed').padStart(5,'0'):'';
