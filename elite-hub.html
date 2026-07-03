@@ -1465,7 +1465,7 @@ function renderRunCard(){
     else if(paceSec<=goalPaceSec*1.25)paceCls='slow';
   }
   return `<div class="run-card">
-    <div class="run-hdr"><span class="run-title">${target.label}</span><span class="run-target">${target.wk?`Wk ${target.wk}/30 · `:''}Target: <b>${target.miles}</b>mi</span></div>
+    <div class="run-hdr"><span class="run-title">${target.label}</span><span class="run-target">${target.wk?`Wk ${target.wk}/${MARATHON_PLAN.weeks.length} · `:''}Target: <b>${target.miles}</b>mi</span></div>
     ${target.detail?`<div style="font-size:.68rem;color:var(--text-muted);font-weight:600;margin:-2px 0 8px;line-height:1.4">${target.detail}</div>`:''}
     <div class="run-inputs">
       <div class="run-input-group"><label>Miles</label><input class="run-input" type="number" inputmode="decimal" step="0.1" id="runMiles" value="${mi}" placeholder="${target.miles}"></div>
@@ -1642,7 +1642,7 @@ const LONG_RUN_PLAN=[26.2,8,12,16,20,22,20,18,20,18,17,15,14,13,12,11,10,9,8,7,6
 // ===== COACH'S 30-WEEK RICHMOND PLAN (Richmond_Marathon_Plan_2026.md) =====
 // weeks[i].d = sessions keyed by day-of-week (0=Sun..6=Sat): [shortLabel, miles, detail]
 const PLAN_PHASES={1:'Base',2:'Aerobic',3:'Strength & Stamina',4:'Marathon Specific',5:'Taper'};
-const MARATHON_PLAN={start:'2026-04-20',weeks:[
+const MARATHON_WEEKS_FULL=[
 {mi:15,ph:1,d:{2:['Easy Run',3],3:['XT',0,'Bike or swim 30-40 min + lift'],4:['Easy Run',3],6:['Long Run',5,'Easy pace'],0:['Easy Run',4]}},
 {mi:18,ph:1,d:{2:['Easy Run',3.5],3:['Easy Run',3],4:['Easy Run',4],6:['Long Run',5,'Easy pace'],0:['Easy Run',3]}},
 {mi:21,ph:1,d:{2:['Easy + Strides',4,'Easy run + 4 strides'],3:['Easy Run',3],4:['Easy Run',4],6:['Long Run',6,'Easy pace'],0:['Easy Run',4]}},
@@ -1673,7 +1673,11 @@ const MARATHON_PLAN={start:'2026-04-20',weeks:[
 {mi:30,ph:5,d:{2:['MP Repeats',7,'WU 1.5mi + 4 x 1 mile at MP (90 sec jog) + CD 1mi'],3:['Easy Run',4],4:['Easy + Strides',4,'Easy run + 4 strides'],6:['Long Run',10,'Easy pace · taper begins'],0:['Easy Run',3]}},
 {mi:24,ph:5,d:{2:['MP Repeats',6,'WU 1.5mi + 3 x 1 mile at MP (90 sec jog) + CD 1mi'],3:['Easy Run',3],4:['Easy + Strides',4,'Easy run + 6 strides'],6:['Easy Run',6],0:['Easy Run',3]}},
 {mi:12,ph:5,d:{1:['Easy + Strides',3,'Easy run + 4 strides'],2:['MP Repeats',4,'WU 1mi + 2 x 1 mile at MP (2 min jog) + CD 1mi'],3:['Easy Run',3],4:['Shakeout',2,'Easy shakeout + 4 strides'],6:['RACE DAY',26.2,'RICHMOND MARATHON — negative split: 10:25-10:30 first 6, settle 10:18, finish strong']}}
-]};
+];
+// Compressed 20-week build, started Mon 2026-06-29 (race day fixed Nov 14 = exactly 20 weeks out).
+// Keeps: full base ramp, every step-back, the 20-miler, peak week, 3-week taper.
+// Trims repeat build weeks from the coach's 30-week original (kept weeks listed below).
+const MARATHON_PLAN={start:'2026-06-29',weeks:[1,3,5,6,7,8,9,10,13,14,15,17,19,20,21,23,25,28,29,30].map(n=>MARATHON_WEEKS_FULL[n-1])};
 function planWeekIdx(d){
   const s=new Date(MARATHON_PLAN.start+'T00:00:00');
   const t=new Date(d);t.setHours(0,0,0,0);
@@ -1728,7 +1732,7 @@ function renderRace(){
   if(daysLeft<=7)longRunLine=`<b>RACE WEEK</b> · taper · easy legs only`;
   else if(pIdx>=0){
     const w=MARATHON_PLAN.weeks[pIdx],sat=w.d[6];
-    longRunLine=`Week <b>${pIdx+1}/30</b> · ${PLAN_PHASES[w.ph]}${w.sb?' · <b style="color:#10b981">step-back week</b>':''} · <b>${w.mi}</b>mi planned<br>Saturday: <b>${sat?sat[1]+'mi '+sat[0]:'rest'}</b> · goal pace ${pace}/mi`;
+    longRunLine=`Week <b>${pIdx+1}/${MARATHON_PLAN.weeks.length}</b> · ${PLAN_PHASES[w.ph]}${w.sb?' · <b style="color:#10b981">step-back week</b>':''} · <b>${w.mi}</b>mi planned<br>Saturday: <b>${sat?sat[1]+'mi '+sat[0]:'rest'}</b> · goal pace ${pace}/mi`;
   }
   else longRunLine=`Saturday long run: <b>${longRun}</b>mi · goal pace ${pace}/mi`;
   const priorTime=localStorage.getItem('eh_race_prior')||'';

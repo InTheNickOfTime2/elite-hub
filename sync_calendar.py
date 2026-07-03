@@ -19,15 +19,18 @@ TOKEN = '/Users/thomaskuhn/Documents/GBP_Audit/token.json'
 CAL = 'primary'                    # tom@roserestoration.com
 ATTENDEE = 'tkuhn05@gmail.com'     # Tom personal — events land here
 TZ = 'America/New_York'
-PLAN_START = date(2026, 4, 20)     # Week 1 Monday
+PLAN_START = date(2026, 6, 29)     # Week 1 Monday (compressed 20-week build)
 RACE_DAY = date(2026, 11, 14)
+
+# Compressed 20-week selection from the coach's 30-week original (see elite-hub.html)
+KEEP_WEEKS = [1, 3, 5, 6, 7, 8, 9, 10, 13, 14, 15, 17, 19, 20, 21, 23, 25, 28, 29, 30]
 
 RUN_TIME = (5, 30)    # 5:30 AM
 LIFT_TIME = (17, 0)   # 5:00 PM
 
 # Coach's 30-week plan — day-of-week (0=Sun..6=Sat): (label, miles, detail)
-# Mirrors MARATHON_PLAN in elite-hub.html. Keep the two in sync.
-WEEKS = [
+# Mirrors MARATHON_WEEKS_FULL in elite-hub.html. Keep the two in sync.
+WEEKS_FULL = [
  {'mi':15,'ph':1,'d':{2:('Easy Run',3,''),3:('XT',0,'Bike or swim 30-40 min'),4:('Easy Run',3,''),6:('Long Run',5,'Easy pace'),0:('Easy Run',4,'')}},
  {'mi':18,'ph':1,'d':{2:('Easy Run',3.5,''),3:('Easy Run',3,''),4:('Easy Run',4,''),6:('Long Run',5,'Easy pace'),0:('Easy Run',3,'')}},
  {'mi':21,'ph':1,'d':{2:('Easy + Strides',4,'Easy run + 4 strides'),3:('Easy Run',3,''),4:('Easy Run',4,''),6:('Long Run',6,'Easy pace'),0:('Easy Run',4,'')}},
@@ -59,6 +62,8 @@ WEEKS = [
  {'mi':24,'ph':5,'d':{2:('MP Repeats',6,'WU 1.5mi + 3 x 1 mile at MP (90 sec jog) + CD 1mi'),3:('Easy Run',3,''),4:('Easy + Strides',4,'Easy run + 6 strides'),6:('Easy Run',6,''),0:('Easy Run',3,'')}},
  {'mi':12,'ph':5,'d':{1:('Easy + Strides',3,'Easy run + 4 strides'),2:('MP Repeats',4,'WU 1mi + 2 x 1 mile at MP (2 min jog) + CD 1mi'),3:('Easy Run',3,''),4:('Shakeout',2,'Easy shakeout + 4 strides'),6:('RACE DAY',26.2,'RICHMOND MARATHON — negative split: 10:25-10:30 miles 1-6, settle to 10:18, finish strong')}},
 ]
+
+WEEKS = [WEEKS_FULL[n - 1] for n in KEEP_WEEKS]
 
 PHASES = {1:'Base',2:'Aerobic',3:'Strength & Stamina',4:'Marathon Specific',5:'Taper'}
 
@@ -112,13 +117,13 @@ def main():
                 if label == 'RACE DAY':
                     title = 'RICHMOND MARATHON — RACE DAY (26.2)'
                     dur_min = 330
-                desc = (detail or label) + f"\n\nWeek {wk_idx+1}/30 — {PHASES[w['ph']]} phase"
+                desc = (detail or label) + f"\n\nWeek {wk_idx+1}/{len(WEEKS)} — {PHASES[w['ph']]} phase"
                 if w.get('sb'):
                     desc += ' (step-back week)'
                 desc += f" — {w['mi']} mi planned this week.\nElite Hub tracks the details."
                 events.append((RUN_TIME, dur_min, title, desc))
             lift = LIFTS.get(dow)
-            if lift and wk_idx < 29 and label_is_not_race(w, dow):  # race week: no lifting
+            if lift and wk_idx < len(WEEKS) - 1 and label_is_not_race(w, dow):  # race week: no lifting
                 note = LIFT_PHASE_NOTE[w['ph']]
                 events.append((LIFT_TIME, 75, f'Lift: {lift.split(" — ")[0]}', lift + ('\n\n' + note if note else '')))
         for (hh, mm), dur, title, desc in events:
