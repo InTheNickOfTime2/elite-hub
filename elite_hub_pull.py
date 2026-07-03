@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
 """Pull Tom's Elite Hub data from Supabase cloud sync and summarize the week.
 
-Sync account: tkuhn05@gmail.com (Tom's personal). First sign-in is a
-two-step handshake because the OTP lands in an inbox scripts can't read:
-
-  1) python3 elite_hub_pull.py --request     (emails a code to tkuhn05)
-  2) python3 elite_hub_pull.py --code 123456 (verify + store session)
-
-The session is stored at ~/Documents/GBP_Audit/.elite_hub_sb.json
-(chmod 600) and refreshes silently on every later run.
+Sync account: tom@roserestoration.com. Sign-in is fully automated:
+requests an email OTP, reads the code from Tom's work Gmail via API,
+verifies, and stores the session at ~/Documents/GBP_Audit/.elite_hub_sb.json
+(chmod 600). Later runs refresh silently. Manual fallback:
+--request then --code NNNNNN.
 
 Requires the Supabase project (tdgzcxqmrylrazeuizar) to be ACTIVE and
-Tom signed into Cloud Sync on his phone with tkuhn05@gmail.com.
+Tom signed into Cloud Sync on his phone with tom@roserestoration.com.
 
 Usage: python3 elite_hub_pull.py [--raw|--request|--code NNNNNN]
 """
-import json, os, sys, urllib.request
+import json, os, re, sys, time, base64, urllib.request
 from datetime import date, timedelta
 
 SB = 'https://tdgzcxqmrylrazeuizar.supabase.co'
 KEY = 'sb_publishable_9Bd_P3GLGZ5eMu66qEemlQ_PZ6WkVqi'
-EMAIL = 'tkuhn05@gmail.com'
+EMAIL = 'tom@roserestoration.com'
+GTOKEN = os.path.expanduser('~/Documents/GBP_Audit/token.json')
 CREDS = os.path.expanduser('~/Documents/GBP_Audit/.elite_hub_sb.json')
 
 
@@ -55,8 +53,36 @@ def get_session():
         except Exception:
             print('Stored session expired — redo the handshake: --request, then --code NNNNNN')
             sys.exit(1)
-    print('No session. Start with: python3 elite_hub_pull.py --request')
-    sys.exit(1)
+    # No stored session: fully automated OTP via work Gmail
+    since = time.time()
+    sb('/auth/v1/otp', {'email': EMAIL, 'create_user': True})
+    code = gmail_otp_code(since)
+    s = sb('/auth/v1/verify', {'type': 'email', 'email': EMAIL, 'token': code})
+    save_session(s)
+    return s
+
+
+def gmail_otp_code(since_ts):
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    svc = build('gmail', 'v1', credentials=Credentials.from_authorized_user_file(GTOKEN))
+    for _ in range(12):  # poll up to ~1 min
+        msgs = svc.users().messages().list(userId='me', q='supabase OR "login code" OR "magic link" newer_than:1d',
+                                           maxResults=5).execute().get('messages', [])
+        for m in msgs:
+            full = svc.users().messages().get(userId='me', id=m['id'], format='full').execute()
+            if int(full['internalDate']) / 1000 < since_ts - 30:
+                continue
+            def walk(p):
+                if p.get('body', {}).get('data'):
+                    yield base64.urlsafe_b64decode(p['body']['data']).decode(errors='ignore')
+                for sp in p.get('parts', []) or []:
+                    yield from walk(sp)
+            codes = re.findall(r'\b(\d{6})\b', ' '.join(walk(full['payload'])))
+            if codes:
+                return codes[0]
+        time.sleep(5)
+    raise RuntimeError('OTP email never arrived')
 
 
 def save_session(s):
