@@ -3570,12 +3570,35 @@ function weeklyReviewStats(d){
   return {avg,best:sorted[0],worst:sorted[sorted.length-1],strongest:cats[0],weakest:cats[cats.length-1],dayCount:days.length};
 }
 
-function jPrompts(){return jMode==='deep'?J_DEEP:jMode==='weekly'?J_WEEKLY:J_DAILY}
+function jPrompts(){
+  let base=jMode==='deep'?J_DEEP:jMode==='weekly'?J_WEEKLY:J_DAILY;
+  if(jMode==='daily'){
+    // Minimal Mode: 3 prompts, 2 minutes — the habit first, the depth later
+    if(localStorage.getItem('eh_minimal')==='1')base=base.filter(p=>['confidence','improve','priority'].includes(p.id));
+    // Long-run days (14+): capture the race-day lesson while the legs still remember
+    const ses=planSessionFor(curDate);
+    if(ses&&ses.miles>=14)base=[{id:'longrun',q:'Long run debrief',hint:'Fueling, pacing, how the legs felt at the end, what it taught you about race day',type:'text'},...base];
+  }
+  return base;
+}
 
 function renderJournal(){
   const key=dk(curDate),sk=key+'_'+jMode,data=ld('j_'+sk),prompts=jPrompts();
   let h=`<div class="j-tabs"><button class="j-tab${jMode==='daily'?' active':''}" data-jm="daily">Daily</button><button class="j-tab${jMode==='deep'?' active':''}" data-jm="deep">Deep</button><button class="j-tab${jMode==='weekly'?' active':''}" data-jm="weekly">Sun Review</button></div>`;
   h+=`<div class="save-ind" id="saveInd">Auto-saves as you type</div>`;
+  // Yesterday echo: close the loop on "improve" and "tomorrow's #1"
+  if(jMode==='daily'){
+    const yd=new Date(curDate);yd.setDate(yd.getDate()-1);
+    const yj=ld('j_'+dk(yd)+'_daily');
+    const e=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if(yj.improve||yj.priority){
+      h+=`<div class="prompt-card" style="border-left:3px solid #f5c842">
+        <div class="prompt-q" style="color:#f5c842">Yesterday you said</div>
+        ${yj.improve?`<div class="prompt-hint" style="margin-bottom:4px"><b>Improve:</b> ${e(yj.improve)}</div>`:''}
+        ${yj.priority?`<div class="prompt-hint"><b>Today's #1 was going to be:</b> ${e(yj.priority)}</div>`:''}
+      </div>`;
+    }
+  }
   // Sunday Review auto-stats header
   if(jMode==='weekly'){
     const s=weeklyReviewStats(curDate);
