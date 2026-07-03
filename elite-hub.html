@@ -1696,6 +1696,37 @@ function planSessionFor(d){
   return{label:ses[0],miles:ses[1],detail:ses[2]||'',wk:idx+1};
 }
 
+// Context-aware DON'T list — the 1-2 rules that matter TODAY, from the coach's plan + history
+function dontListFor(d){
+  const out=[];
+  const idx=planWeekIdx(d);if(idx<0)return out;
+  const w=MARATHON_PLAN.weeks[idx],dow=d.getDay(),ses=planSessionFor(d);
+  const mo=d.getMonth()+1;
+  if(idx===MARATHON_PLAN.weeks.length-1){
+    out.push("Nothing new this week. No new shoes, food, or workouts. Feeling flat or puffy = the taper working.");
+    if(dow===6)out.push("Don't go out under 10:25 pace. The first 6 miles will feel free. They are not. The race starts at 18.");
+    return out.slice(0,2);
+  }
+  if(w.ph===5)out.push("Don't chase fitness now — it's banked. Cutting volume is the workout.");
+  if(w.sb)out.push("Step-back week: don't add miles because you feel good. Adaptation happens during the pull-back, not the push.");
+  if(w.ph===1)out.push("No workouts, no pace-chasing. If you can't hold a conversation, slow down — easy is the whole job right now.");
+  if(dow===5&&w.d[6]&&w.d[6][1]>=8)out.push("No heavy lower body today — tomorrow's long run pays for every ego set.");
+  if(dow===6&&ses&&ses.miles>=14)out.push("Don't run this unfueled — gel at miles 5/10"+(ses.miles>=19?"/15":"")+", with water, race-day brand only.");
+  if(mo>=7&&mo<=9&&ses&&ses.miles>0)out.push("Don't chase pace in this heat — 15-30 sec/mi slower at the same effort is correct execution, not weakness.");
+  if(ses&&ses.miles>0)out.push("Don't run through a plantar twinge or anything that changes your gait — one easy day now beats three weeks off later.");
+  out.push("Don't make up missed miles. The plan survives a missed easy run; stacked catch-up days cause injuries.");
+  if(!ses||!ses.miles)out.push("Don't cut calories hard on rest days either — protein stays at target, the deficit comes from snacks and liquid calories.");
+  return out.slice(0,2);
+}
+function renderDontCard(d){
+  const list=dontListFor(d);
+  if(!list.length)return'';
+  return `<div style="background:linear-gradient(135deg,#160d0d,#1c1010);border:1px solid #3a1a1a;border-left:3px solid #ef4444;border-radius:12px;padding:12px 15px;margin:10px 0">
+    <div style="font-size:.62rem;letter-spacing:2.5px;text-transform:uppercase;color:#ef4444;font-weight:800;margin-bottom:6px">Don't — today</div>
+    ${list.map(t=>`<div style="font-size:.72rem;color:var(--text-muted);font-weight:600;line-height:1.5;padding:2px 0">${t}</div>`).join('')}
+  </div>`;
+}
+
 // Auto-set the scorecard Steps tier (8/10/12K pills) from an exact step count
 function syncStepsTier(key,n){
   if(!n)return;
@@ -3708,12 +3739,16 @@ function renderWorkout(){
   let h='';
 
   if(!prog){
+    const restRun=renderRunCard();
+    if(restRun){h+=restRun;h+=renderMileageCard()}
+    h+=renderDontCard(curDate);
     h+=`<div class="wo-rest">
       <div class="wo-rest-icon">&#x1f6cc;</div>
-      <h3>Rest &amp; Recovery</h3>
-      <p>No lifting today. Walk, meal prep, stretch, recover. Tomorrow's the reset — Push A.</p>
+      <h3>${restRun?'No Lifting Today':'Rest &amp; Recovery'}</h3>
+      <p>${restRun?'Easy miles only, then recover. Tomorrow\'s the reset — Push A.':'No lifting today. Walk, meal prep, stretch, recover. Tomorrow\'s the reset — Push A.'}</p>
     </div>`;
     document.getElementById('sec-workout').innerHTML=h;
+    if(restRun)bindRunCard(dk(curDate));
     return;
   }
 
@@ -3724,6 +3759,7 @@ function renderWorkout(){
   // Run card + Mileage on run days
   const runCardHTML=renderRunCard();
   if(runCardHTML){h+=runCardHTML;h+=renderMileageCard()}
+  h+=renderDontCard(curDate);
   h+=`<div class="wo-header"><div class="wo-day-name">${prog.name}</div><div class="wo-day-sub">${prog.sub}</div></div>`;
   // Workout total timer
   const started=data.startedAt;

@@ -37,6 +37,26 @@ def session_for(d):
     return WEEKS[idx], WEEKS[idx]['d'].get(dow)
 
 
+def dont_for(d, wk, ses, wk_num):
+    """Top context-aware DON'T for today (mirrors dontListFor in elite-hub.html)."""
+    dow_js = (d.weekday() + 1) % 7
+    if wk_num == len(WEEKS):
+        if dow_js == 6:
+            return "Don't go out under 10:25 pace. The first 6 miles will feel free. They are not. The race starts at 18."
+        return "Nothing new this week. No new shoes, food, or workouts. Feeling flat or puffy = the taper working."
+    if wk.get('sb'):
+        return "Step-back week: don't add miles because you feel good. Adaptation happens during the pull-back, not the push."
+    if wk['ph'] == 1:
+        return "No workouts, no pace-chasing. If you can't hold a conversation, slow down — easy is the whole job right now."
+    if dow_js == 5 and wk['d'].get(6) and wk['d'][6][1] >= 8:
+        return "No heavy lower body today — tomorrow's long run pays for every ego set."
+    if dow_js == 6 and ses and ses[1] >= 14:
+        return "Don't run this unfueled — gel every 5 miles, with water, race-day brand only."
+    if 7 <= d.month <= 9 and ses and ses[1]:
+        return "Don't chase pace in this heat — 15-30 sec/mi slower at the same effort is correct execution, not weakness."
+    return "Don't make up missed miles. The plan survives a missed easy run; stacked catch-up days cause injuries."
+
+
 def weather():
     try:
         url = (f'https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}'
@@ -86,6 +106,9 @@ def main():
     w = weather()
     if w and ses and ses[1]:
         lines.append(f'<p>Run window: {w}</p>')
+
+    if today != RACE_DAY:
+        lines.append(f'<p style="color:#c0392b"><b>Don\'t:</b> {dont_for(today, wk, ses, wk_num)}</p>')
 
     # Tomorrow preview
     _, tom = session_for(today + timedelta(days=1))
