@@ -4,3 +4,11 @@
 .idea/
 .vscode/
 node_modules/
+
+# personal automation scripts stay local only (public repo serves the hub page)
+morning_brief.py
+sync_calendar.py
+elite_hub_pull.py
+add_manifesto_rituals.py
+__pycache__/
+*.pyc

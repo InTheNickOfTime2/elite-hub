@@ -960,7 +960,7 @@ html.light-mode .check-item.tiered.nope{background:#fbeaea;border-color:#e8b8b8}
 
 .check-item{display:flex;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:7px;cursor:pointer;transition:all .2s;user-select:none;-webkit-user-select:none}
 /* Minimal Mode: strip the score section to weigh-in, run, protein */
-#sec-score.minimal .cat-breakdown,#sec-score.minimal .sup-card,#sec-score.minimal .custom-edit,#sec-score.minimal .tox-card,#sec-score.minimal .kw-card,#sec-score.minimal .miss-card,#sec-score.minimal .trig-card{display:none}
+#sec-score.minimal .cat-breakdown,#sec-score.minimal .sup-card,#sec-score.minimal .custom-edit,#sec-score.minimal .tox-card,#sec-score.minimal .kw-card,#sec-score.minimal .miss-card,#sec-score.minimal .trig-card,#sec-score.minimal .wk-scorecard{display:none}
 .check-item:hover{background:#1a1a28}
 .check-item.checked{border-color:#2a3a2a;background:#0f1a0f}
 .check-item.na{opacity:.35;cursor:default}
@@ -2401,6 +2401,42 @@ function getDayScore(d){const data=ld('sc_'+dk(d)),items=getActive(d);let s=0;it
 function scCol(s,m){const p=m>0?s/m:0;return p>=9/11?'#4CAF50':p>=7/11?'#f5c842':'#ff4444'}
 function scTxt(s,m){const p=m>0?s/m:0;if(p>=10/11)return'ELITE';if(p>=9/11)return'ON TARGET';if(p>=7/11)return'CLOSE';return s===0?'-':'PUSH HARDER'}
 
+// Sunday Scorecard (manifesto): weight, waist, protein avg, steps avg, sleep avg, compliance %.
+// Trailing 7 days ending on the viewed date — on Sunday night it grades exactly the week that ended.
+function weekScorecardHTML(){
+  const end=new Date(curDate);end.setHours(0,0,0,0);
+  let slpSum=0,slpC=0,stSum=0,stC=0,scSum=0,scC=0,wtLatest=0;
+  for(let i=0;i<7;i++){
+    const d=new Date(end);d.setDate(d.getDate()-i);const k=dk(d);
+    const sh=parseFloat(ld('slp_'+k).hours);if(sh){slpSum+=sh;slpC++}
+    const sc=parseInt(ld('steps_'+k).count);if(sc){stSum+=sc;stC++}
+    if(hasLogged(d)){scSum+=scoreDay100(d);scC++}
+    if(!wtLatest){const pw=parseFloat(ld('wt_'+k).lbs);if(pw)wtLatest=pw}
+  }
+  let wtPrior=0;
+  for(let i=7;i<21;i++){const d=new Date(end);d.setDate(d.getDate()-i);const pw=parseFloat(ld('wt_'+dk(d)).lbs);if(pw){wtPrior=pw;break}}
+  let waLatest=0,waPrior=0,waAt=-1;
+  for(let i=0;i<7;i++){const d=new Date(end);d.setDate(d.getDate()-i);const pv=parseFloat(ld('waist_'+dk(d)).in);if(pv){waLatest=pv;waAt=i;break}}
+  if(waLatest){for(let i=waAt+1;i<77;i++){const d=new Date(end);d.setDate(d.getDate()-i);const pv=parseFloat(ld('waist_'+dk(d)).in);if(pv){waPrior=pv;break}}}
+  let proSum=0,proC=0;const tg=getNutTarget();
+  for(let i=0;i<7;i++){const d=new Date(end);d.setDate(d.getDate()-i);const dn=ld('nut_'+dk(d));if(dn.meals&&dn.meals.length){proSum+=nutTotals(dn).pro;proC++}}
+  const comp=scC?Math.round(scSum/scC):0;
+  const grade=comp>=90?'A':comp>=80?'B':comp>=70?'C':comp>=60?'D':'F';
+  const gcol=zone100(comp).color;
+  const delta=(a,b,unit)=>{const dv=(a-b);return `<span class="met-delta ${dv>0?'up':dv<0?'down':'flat'}">${(dv>0?'+':'')+dv.toFixed(1)}${unit}</span>`};
+  const row=(lbl,val,sub,subHit)=>`<div class="nut-weekly-row"><span class="nut-weekly-row-lbl">${lbl}</span><span class="nut-weekly-row-val"><b>${val}</b>${sub?`<small${subHit?' class="hit"':''}>${sub}</small>`:''}</span></div>`;
+  let h=`<div class="nut-weekly wk-scorecard">
+    <div class="nut-weekly-hdr"><span class="nut-weekly-lbl">Sunday Scorecard · The Week Gets Graded</span><span style="font-size:1.05rem;font-weight:900;color:${scC?gcol:'var(--text-faint)'}">${scC?grade:'—'}</span></div>`;
+  h+=row('Weight',wtLatest?wtLatest.toFixed(1)+' lbs':'—',wtLatest&&wtPrior?delta(wtLatest,wtPrior,'')+' vs last wk':'log a weigh-in',wtLatest&&wtPrior&&wtLatest<wtPrior);
+  h+=row('Waist',waLatest?waLatest.toFixed(1)+' in':'—',waLatest?(waPrior?delta(waLatest,waPrior,'')+' vs prior tape':'first measurement'):'tape it Sunday',waLatest&&waPrior&&waLatest<waPrior);
+  h+=row('Protein Avg',proC?Math.round(proSum/proC)+'g':'—',proC?proC+'d logged · target '+tg.pro+'g':'log meals',proC&&proSum/proC>=tg.pro*.95);
+  h+=row('Steps Avg',stC?Math.round(stSum/stC).toLocaleString():'—',stC?stC+'d logged':'',stC&&stSum/stC>=8000);
+  h+=row('Sleep Avg',slpC?(slpSum/slpC).toFixed(1)+'h':'—',slpC?slpC+'d logged · goal 7.5':'',slpC&&slpSum/slpC>=6.5);
+  h+=row('Compliance',scC?comp+'%':'—',scC?scC+'/7 days scored':'no days logged',comp>=80);
+  h+=`</div>`;
+  return h;
+}
+
 function renderScore(){
   const key=dk(curDate),data=ld('sc_'+key),items=getActive(curDate),max=getMax(curDate);
   const MINIMAL=localStorage.getItem('eh_minimal')==='1';
@@ -2467,6 +2503,13 @@ function renderScore(){
     const lo=Math.min(...wtVals),hi=Math.max(...wtVals),rng=hi-lo||1;
     wtArr.forEach((v,i)=>{if(!v){sparkBars+='<div class="met-spark-bar" style="height:3px;opacity:.2"></div>';return}const h=4+((v-lo)/rng)*16;sparkBars+=`<div class="met-spark-bar${i===29?' today':''}" style="height:${h}px"></div>`});
   }
+  // Waist: weekly tape measurement — show latest reading if not measured today
+  const wa=ld('waist_'+key);
+  const waN=parseFloat(wa.in)||0;
+  let waLast=0,waLastDays=0;
+  for(let i=1;i<=70;i++){const pd=new Date(curDate);pd.setDate(pd.getDate()-i);const pv=parseFloat(ld('waist_'+dk(pd)).in);if(pv){waLast=pv;waLastDays=i;break}}
+  let waDelta=null,waDeltaCol='flat',waDeltaTxt='—';
+  if(waN&&waLast){waDelta=(waN-waLast).toFixed(1);waDeltaCol=waDelta>0?'up':waDelta<0?'down':'flat';waDeltaTxt=(waDelta>0?'+':'')+waDelta}
   const metOpen=window._metOpen||{};
   h+=`<div class="met-card">
     <div class="met-row${metOpen.sleep?' open':''}" data-met="sleep">
@@ -2492,6 +2535,16 @@ function renderScore(){
         <div class="met-edit-field full"><label>Fasted AM weight (lbs)</label><input type="number" step="0.1" min="0" max="500" id="mWtLbs" placeholder="182.4" value="${wt.lbs||''}"></div>
       </div>
     </div>
+    <div class="met-row${metOpen.waist?' open':''}" data-met="waist">
+      <span class="met-lbl">Waist</span>
+      <div class="met-main"><span class="met-num${waN?'':' low'}">${waN?waN.toFixed(1):(waLast?waLast.toFixed(1):'—')}</span><span class="met-unit">${(waN||waLast)?'in':''}</span></div>
+      <span class="met-sub">${waN&&waDelta!==null?`<span class="met-delta ${waDeltaCol}">${waDeltaTxt}</span> vs last`:(!waN&&waLast?`last taped ${waLastDays}d ago`:'Sunday tape measure')}</span>
+    </div>
+    <div class="met-edit" style="display:${metOpen.waist?'block':'none'}">
+      <div class="met-edit-grid">
+        <div class="met-edit-field full"><label>Waist at navel (inches)</label><input type="number" step="0.1" min="20" max="80" id="mWaistIn" placeholder="44.0" value="${wa.in||''}"></div>
+      </div>
+    </div>
     <div class="met-row${metOpen.stp?' open':''}" data-met="stp">
       <span class="met-lbl">Steps</span>
       <div class="met-main"><span class="met-num${stN?'':' low'}" ${stCol?`style="color:${stCol}"`:''}>${stN?stN.toLocaleString():'—'}</span></div>
@@ -2503,6 +2556,8 @@ function renderScore(){
       </div>
     </div>
   </div>`;
+
+  h+=weekScorecardHTML();
 
   // Top 3 Priorities
   const pri=ld('pri_'+key);
@@ -2803,7 +2858,7 @@ function renderScore(){
       const k=el.dataset.met;
       window._metOpen={[k]:!window._metOpen[k]};
       renderScore();
-      if(window._metOpen[k]){setTimeout(()=>{const f=document.getElementById(k==='sleep'?'mSlpHrs':k==='stp'?'mStepsN':'mWtLbs');f&&f.focus()},20)}
+      if(window._metOpen[k]){setTimeout(()=>{const f=document.getElementById(k==='sleep'?'mSlpHrs':k==='stp'?'mStepsN':k==='waist'?'mWaistIn':'mWtLbs');f&&f.focus()},20)}
     });
   });
   // Sleep fields
@@ -2822,6 +2877,11 @@ function renderScore(){
     let priorW=null;
     for(let i=1;i<90;i++){const d=new Date(curDate);d.setDate(d.getDate()-i);const pw=parseFloat(ld('wt_'+dk(d)).lbs);if(pw){priorW=pw;break}}
     if(newW&&priorW)checkWeightMilestone(newW,priorW);
+  });
+  // Waist field
+  const waEl=document.getElementById('mWaistIn');
+  if(waEl)waEl.addEventListener('change',()=>{
+    const w=ld('waist_'+key);w.in=waEl.value;w.src='manual';sv('waist_'+key,w);renderScore();
   });
   // Steps field
   const stEl=document.getElementById('mStepsN');
@@ -4396,7 +4456,7 @@ document.getElementById('importFile').addEventListener('change',e=>{
 });
 
 // Apple Health ingest (iOS Shortcut):
-//   elite-hub.html?steps=12345&sleep=7.4&bed=23:41&wake=06:12&runmi=5.2&runmin=63&wt=268.4[&score=][&d=YYYY-MM-DD]
+//   elite-hub.html?steps=12345&sleep=7.4&bed=23:41&wake=06:12&runmi=5.2&runmin=63&wt=268.4&waist=44.5[&score=][&d=YYYY-MM-DD]
 // Any subset of params works. Sleep values apply to last night (today's date key).
 // A synced run also auto-checks the scorecard Run item.
 (function(){
@@ -4424,6 +4484,11 @@ document.getElementById('importFile').addEventListener('change',e=>{
     if(wtl>50&&wtl<500){
       const w=ld('wt_'+dkey);w.lbs=Math.round(wtl*10)/10;w.src='health';sv('wt_'+dkey,w);
       synced.push(w.lbs+' lbs');
+    }
+    const wai=parseFloat(q.get('waist'));
+    if(wai>=20&&wai<=80){
+      const w=ld('waist_'+dkey);w.in=Math.round(wai*10)/10;w.src='health';sv('waist_'+dkey,w);
+      synced.push(w.in+'in waist');
     }
     const rhr=parseFloat(q.get('rhr'));
     if(rhr>=30&&rhr<=120){
